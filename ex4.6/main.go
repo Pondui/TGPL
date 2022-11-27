@@ -26,7 +26,7 @@ func squashUnicodeSpace(b []byte) []byte {
 		if unicode.IsSpace(r1) && unicode.IsSpace(r2) {
 			copy(b[size:], b[size+size2:])
 			b = b[:len(b)-size2]
-			// Replace non space unicode.IsSpace characters (i.e. tabs, newlines)
+			// Replace non space unicode.IsSpace characters (i.e. tabs, newlines) with spaces
 			if newR1, newSize1 := utf8.DecodeRune(b[size:]); newR1 != ' ' {
 				b[size] = []byte(" ")[0] // Works only because a space is 
 				copy(b[size+1:], b[size+newSize1:])
