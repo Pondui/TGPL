@@ -39,7 +39,7 @@ func reverse(b []byte) {
 }
 
 // Swaps two sub slices (i and j) within a slice, mutates the slice that is passed
-// Left subslice is has len i, right subslice has len j
+// Left subslice has len i, right subslice has len j
 // Will be used to account for various size utf8 encodings in []byte
 func swapSubSlices(s []byte, lenI int) {
 	lenJ := len(s) - lenI
