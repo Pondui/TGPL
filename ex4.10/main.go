@@ -10,13 +10,16 @@ import (
 )
 
 func main() {
-    result, err := github.SearchIssues(os.Args[1:])
+    orderedResult, totalCount, err := github.SearchIssues(os.Args[1:])
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Printf("%d issues:\n", result.TotalCount)
-    for _, item := range result.Items {
-        fmt.Printf("#%-5d %9.9s %.55s\n",
+    fmt.Printf("%d issues:\n", totalCount)
+    for _, issuesByAge := range orderedResult {
+		fmt.Printf("Issue Age: %s\n", issuesByAge.Category)
+		for _, item := range issuesByAge.Issues {
+			fmt.Printf("#%-5d %9.9s %.55s\n",
             item.Number, item.User.Login, item.Title)
+		}
     }
 }
