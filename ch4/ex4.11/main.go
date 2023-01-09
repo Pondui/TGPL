@@ -17,6 +17,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 
 	"golang.org/x/exp/slices"
@@ -27,6 +28,7 @@ func main() {
 	args := os.Args[1:]
 	ownerPtr := flag.String("OWNER", "", "Owner of Github repository")
 	repoPtr := flag.String("REPO", "", "Github repository to which issues belong")
+	editorPtr := flag.String("EDITOR", "", "Which text editor to use when inputting longer JSON input")
 	flag.Parse()
 
 	// Authentication
@@ -40,6 +42,10 @@ func main() {
 		getIssue(*ownerPtr, *repoPtr, args[len(args)-1], client, token)
 	} else if slices.Contains(args, "close") && slices.Contains(args, "issue") && len(args) <= 5 {
 		closeIssue(*ownerPtr, *repoPtr, args[len(args)-1], client, token)
+	} else if slices.Contains(args, "create") && slices.Contains(args, "issue") && len(args) <= 6 {
+		createIssue(*ownerPtr, *repoPtr, *editorPtr, args[len(args)-1], client, token)
+	} else if slices.Contains(args, "update") && slices.Contains(args, "issue") && len(args) <= 6 {
+		updateIssue(*ownerPtr, *repoPtr, *editorPtr, args[len(args)-1], client, token)
 	}
 }
 
@@ -86,6 +92,71 @@ func closeIssue(owner string, repo string, issueNumber string, client *http.Clie
 	return
 }
 
+// Create an issue, invoking a text editor to add
+func createIssue(owner string, repo string, editor string, title string, client *http.Client, token string) {
+	url := "https://api.github.com/repos/" + owner + "/" + repo + "/issues"
+	var req *http.Request
+	var err error
+
+	// Optionally write JSON payload using editor, or create an issue just with it's title
+	req = generatePayload(http.MethodPost, url, title, "", editor, req)
+	
+	if err != nil {
+		log.Fatal(err)
+	} else {
+		addHeaders(req, token)
+		printResponse(client, req)
+	}
+}
+
+// Update an issue, invoking a text editor to add
+func updateIssue(owner string, repo string, editor string, issueNumber string, client *http.Client, token string) {
+	url := "https://api.github.com/repos/" + owner + "/" + repo + "/issues/" + issueNumber
+	fmt.Println(url)
+	var req *http.Request
+	var err error
+
+	req = generatePayload(http.MethodPatch, url, "", issueNumber, editor, req)
+	if err != nil {
+		log.Fatal(err)
+	} else {
+		addHeaders(req, token)
+		printResponse(client, req)
+	}
+}
+
+func generatePayload(httpMethod string, url string, title string, issueNumber string, editor string, req *http.Request) *http.Request {
+	var err error
+	if editor != "" {
+		filename := "tmp.json"
+		os.Create("tmp.json")
+		cmd := exec.Command(editor, filename)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		
+		var reqBodyFile *os.File
+		// cmd.Run starts and waits fo the cmd to run
+		if err := cmd.Run(); err != nil {
+			log.Fatal(err)
+		} else {
+			reqBodyFile, err = os.Open(filename)
+		}
+		req, err = http.NewRequest(httpMethod, url, reqBodyFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		os.Remove(filename)
+		return req
+	} else {
+		jsonBody , _ := json.Marshal(map[string]string{"title": title})
+		req, err = http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
+		if err != nil {
+			log.Fatal(err)
+		}
+		return req
+	}
+} 
+
 // Adds HTTP Headers to request
 func addHeaders(req *http.Request, token string) {
 	authHeader := "Bearer " + token
@@ -95,6 +166,7 @@ func addHeaders(req *http.Request, token string) {
 
 func printResponse(client *http.Client, req *http.Request) {
 	resp, err := client.Do(req)
+	fmt.Println(resp.Status)
 	if err != nil {
 		log.Fatal(err)
 	}
